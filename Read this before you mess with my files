@@ -7,4 +7,5 @@ Try to keep as many logic/math functions in separate .cpps. You have to create a
 Make sure to include comments because this is no longer for just yourself. Hopefully I'll do better than last year
 
 You will need eclipse, the wpilib add on to eclipse, and the FRC update suite. That stuff can be found through https://wpilib.screenstepslive.com/s/4485.
+You will also need the github desktop interface.
 The serial code for the update suite is M81X05496
