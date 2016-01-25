@@ -4,4 +4,5 @@ You will have to create a project, delete it from workspace but not from disk, m
 Import any new projects that get created.
 If there is a change in functionality, create a new projet with a new descriptive name.
 Try to keep as many logic/math functions in separate .cpps. You have to create a header file, refer to simple drive code to see that.
-Make sure to include omments because this is no longer for just yourself. Hopefully I'll do better than last year
+Make sure to include comments because this is no longer for just yourself. Hopefully I'll do better than last year
+The serial code for the update suite is M81X05496
