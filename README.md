@@ -10,3 +10,5 @@ Make sure to include comments because this is no longer for just yourself. Hopef
 You will need to get eclipse, add the WPI add on, install FRC toolchains, get the update suite, get the github desktop interface and run
 the nav x installer which I'm about to upload. How to do everything besides the last part is at https://wpilib.screenstepslive.com/s/4485
 The serial code for the update suite is M81X05496
+
+~~ KEVIN CHECKING IN ~~
