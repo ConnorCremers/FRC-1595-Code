@@ -13,7 +13,7 @@ class Robot : public SampleRobot
 	AnalogInput examplePotentiometer;
 	Solenoid exampleSolenoid;
 	DoubleSolenoid exampleDoubleSolenoid;
-	Encoder exampleEncoder = new Encoder(0, 1, false, Encoder::EncodingType::k4X);
+
 public:
 	Robot() :
 		exampleJoystick(0)
