@@ -18,6 +18,7 @@ class Robot: public SampleRobot
 	float wheelSpeed; //how fast to move wheels
 	float encoderRPMS; //placeholder till i figure out encoders
 	//Encoders will be placed on both lower and upper fly
+	bool raising; //does the person give the order to raise
 	float distance; //the distance between the shooter and the target to determine speed
 	bool autoShoot, manualShoot; //booleans for driver actions because "get button 3" means very little
 
@@ -25,8 +26,12 @@ class Robot: public SampleRobot
 	CANTalon intakeRoller; //motor running the intake
 	CANTalon intakeLift; //motor which raises/lowers intake
 	//Encoder to detect position of the intake
+	float encoderVal; //value of encoder, replace with proper declaration
+	float intakeVal; //how fast to raise it
 	bool operatorOverride; //does the operator override it (get button 5 doesn't mean much)
+	bool getDaBall; //temporary bool bc get button 6 means nothing
 	DigitalInput boulderIn; //a switch to signal that the boulder is fully entered
+	DigitalInput atBottom; //if the intake is at the bottom
 
 
 	//AUTO ITEMS--THE FOLLOW HAS TO DO WITH AUTO DRIVING AND THE WAY IT INTERACTS WITH THE DRIVE TRAIN
@@ -50,6 +55,7 @@ public:
 			,intakeRoller(7)
 			,intakeLift(8)
 			,boulderIn(0)
+			,atBottom(1)
 
 
 			,driver(0)	//the joystick of the person in control of the drive train
@@ -82,8 +88,7 @@ public:
 
 			if(driver.GetRawButton(6)){ //if driver wants them lowered
 				outerLift.Set(0); //lower the outer wheels
-				manualLift = true;
-				//signals that person is done with control
+				manualLift = true; //program doesn't get to do what it likesw
 			}
 			else if(driver.GetRawButton(5)){
 				outerLift.Set(1); //if driver hits a button, lift
@@ -110,8 +115,22 @@ public:
 				}
 			}
 
-
-
+			//INTAKING STUFF ONLY
+			if(!autoDrive || operatorOverride){//if the computer isn't in control of things for whatever
+				if(getDaBall && !boulderIn.Get()){ //if we want to intake and we dont already have a ball
+					intakeRoller.Set(1);  //get things rollin
+					intakeVal = (5 - encoderVal) * .25; //where 5 is the setpoint and .25 is the P value
+					if(intakeVal > 0){intakeVal += 1;}  //add a bit so it moves when P doesn't do much
+					else{intakeVal -= 1; }
+					intakeLift.Set(intakeVal);
+				}
+				else if(raising && !atBottom.Get()){ //if the shooter is told to be raised up
+					intakeLift.Set(-1); //go down
+				}
+				else{
+					intakeLift.Set(0); //don't move
+				}
+			}
 
 			Wait(0.005);				// wait for a motor update time
 		}
