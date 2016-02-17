@@ -26,7 +26,7 @@ class Robot: public SampleRobot
 	CANTalon intakeRoller; //motor running the intake
 	CANTalon intakeLift; //motor which raises/lowers intake
 	//Encoder to detect position of the intake
-	float encoderVal; //value of encoder, replace with proper declaration
+	float potVal; //value of encoder, replace with proper declaration
 	float intakeVal; //how fast to raise it
 	bool operatorOverride; //does the operator override it (get button 5 doesn't mean much)
 	bool getDaBall; //temporary bool bc get button 6 means nothing
@@ -36,7 +36,7 @@ class Robot: public SampleRobot
 
 	//AUTO ITEMS--THE FOLLOW HAS TO DO WITH AUTO DRIVING AND THE WAY IT INTERACTS WITH THE DRIVE TRAIN
 	bool autoDrive; //a boolean to store whether or not robot is operating autonomously while crossing terrain
-	bool manualOverride; //a boolean to store if it is manually overrid (will just be a button in future)
+	bool manualOverride; //a boolean to store if it is manually overridden (will just be a button in future)
 	bool onTarget; //signal from jetson at end of goalfinding that target is correctly identified
 
 	Joystick driver, operater; //joysticks for driver and operator (i know i misspelled it, operator is a storage type)
@@ -87,14 +87,14 @@ public:
 
 
 			if(driver.GetRawButton(6)){ //if driver wants them lowered
-				outerLift.Set(0); //lower the outer wheels
-				manualLift = true; //program doesn't get to do what it likesw
+				outerLift.Set(1); //lower the outer wheels
+				manualLift = true; //program doesn't get to do what it likes
 			}
 			else if(driver.GetRawButton(5)){
-				outerLift.Set(1); //if driver hits a button, lift
+				outerLift.Set(0); //if driver hits a button, lift
 				manualLift = true;
 			}
-			else { manualLift = false; } //tell program it can do what it likes
+			else { manualLift = false; } //tell program it can do what it likes-will be defined in auto driving code
 
 
 			lDrive1.Set(lPow);	//sets motor powers
@@ -119,7 +119,7 @@ public:
 			if(!autoDrive || operatorOverride){//if the computer isn't in control of things for whatever
 				if(getDaBall && !boulderIn.Get()){ //if we want to intake and we dont already have a ball
 					intakeRoller.Set(1);  //get things rollin
-					intakeVal = (5 - encoderVal) * .25; //where 5 is the setpoint and .25 is the P value
+					intakeVal = (5 - potVal) * .25; //where 5 is the setpoint and .25 is the P value
 					if(intakeVal > 0){intakeVal += 1;}  //add a bit so it moves when P doesn't do much
 					else{intakeVal -= 1; }
 					intakeLift.Set(intakeVal);
