@@ -35,11 +35,7 @@ class Robot: public SampleRobot
 	CANTalon intakeRoller; //motor running the intake
 	CANTalon intakeLift; //motor which raises/lowers intake
 	//Encoder to detect position of the intake
-<<<<<<< HEAD
 	float potVal; //value of potentiometer
-=======
-	float potVal; //value of encoder, replace with proper declaration
->>>>>>> origin/master
 	float intakeVal; //how fast to raise it
 	bool operatorOverride; //does the operator override it (get button 5 doesn't mean much)
 	bool getDaBall; //temporary bool bc get button 6 means nothing
@@ -56,9 +52,9 @@ class Robot: public SampleRobot
 	//choosing what terrain it is crossing
 	std::string obstacles[11] = { "n0thing", "terrain", "terrain", "terrain", "terrain", "terrain", "terrain", "terrain", "terrain", "terrain", "terrain" };
 	//options are: gate, door, titer, low, draw
-	bool hasSelected;
+	bool hasSelected, hasGoneDistance, hasCrossed;
 	bool autoDrive; //a boolean to store whether or not robot is operating autonomously while crossing terrain
-	bool manualOverride; //a boolean to store if it is manually overridden (will just be a button in future)
+	bool manualOverride; //a boolean to store if it is manually overrid (will just be a button in future)
 	bool onTarget; //signal from jetson at end of goalfinding that target is correctly identified
 
 
@@ -182,7 +178,7 @@ public:
 					tErr = (pastVal, curVal, setPoint, .3, iErr, 0, true); //get total error
 					lPow = tErr;
 					rPow = 0; //set motors
-					curErr = setPoint - ahrs->GetYaw;  //find the current error
+					curErr = setPoint - ahrs->GetYaw();  //find the current error
 					if(curErr > 180) { curErr -= 360; } //if its too big, make it smaller
 					if(curErr < -180) { curErr += 360; } //if its too small, make it bigger
 					if(fabs(curErr) < 5){ hasTurned = true; setPointOnce = false;} //if its within 5 degrees, done turning
@@ -199,7 +195,7 @@ public:
 					tErr = (pastVal, curVal, setPoint, .3, iErr, 0, true);
 					lPow = 0;
 					rPow = tErr;
-					curErr = setPoint - ahrs->GetYaw;
+					curErr = setPoint - ahrs->GetYaw();
 					if(curErr > 180) { curErr -= 360; }
 					if(curErr < -180) { curErr += 360; }
 					if(fabs(curErr) < 5){ hasTurned = true; setPointOnce = false;}
@@ -214,26 +210,44 @@ public:
 			}
 
 			//choosing what terrain crossing function to go for
-			if(hasLinedUp){
-				obstacles[0] = obstacles[operater.GetRawAxis(1)]; //have the operator select the terrain type
+			if(hasLinedUp && !hasCrossed){
+				int value = operater.GetRawAxis(1) * 10;
+				obstacles[0] = obstacles[value]; //have the operator select the terrain type
 				if(obstacles[0] == "low"){
 					//lower the arm or whatever
 					if(!setPointOnce){
-						setPoint = ahrs->GetYaw();
-						lEnc->Reset();
+						setPoint = ahrs->GetYaw(); //set the ideal angle
+						lEnc->Reset(); //reset encoders so you know the actual distance
 						rEnc->Reset();
 						setPointOnce = true;
 					}
-					while((lEnc->GetDistance() + rEnc->GetDistance())/2 < 120){ //if the avg is > 120 (will adjust)
-						pastVal = curVal;
-						curVal = ahrs->GetYaw();
-						iErr = integrate(curVal, iErr, setPoint, .005, true); //get i error
-						tErr = (pastVal, curVal, setPoint, .3, iErr, 0, true); //get total error
-						lPow = -.4 * (1+tErr);
+
+					pastVal = curVal;
+					curVal = ahrs->GetYaw(); //get values for sensors
+					iErr = integrate(curVal, iErr, setPoint, .005, true); //get i error
+					tErr = (pastVal, curVal, setPoint, .3, iErr, 0, true); //get total error
+
+					if((lEnc->GetDistance() + rEnc->GetDistance())/2 < 120){ //if the avg is > 120 (will adjust)
+						lPow = -.4 * (1+tErr); //set drive values
 						rPow = .4 * (1-tErr);
 					}
+					else if (!lineDetected){ //if its gone the distance but has not seen a line
+						lPow = -.2 * (1+tErr); //set drive powers but slower so it can see line
+						rPow = .2 * (1-tErr);
+					}
+					else{
+						toLineUp = true; //have it line up on the line
+						hasCrossed = true; //register that it has crossed
+						obstacles[0] = "n0thing"; //now no obstacle in way (
+					}
+				} //pairs with "if(obstacles[0] == "low"){"
+
+				//now go and repeat this a couple of times for each set of obstacles and things
+				if(obstacles[0] == "gate"){
+					//...
 				}
-			}
+
+			} //pairs with "if(hasLinedUp){"
 
 
 			//DRIVING CODE--ONLY PERTAINS TO DRIVE TRAIN
@@ -246,14 +260,14 @@ public:
 			}
 
 			if(driver.GetRawButton(6)){ //if driver wants them lowered
-				outerLift.Set(1); //lower the outer wheels
-				manualLift = true; //program doesn't get to do what it likes
+				outerLift.Set(0); //lower the outer wheels
+				manualLift = true; //program doesn't get to do what it likesw
 			}
 			else if(driver.GetRawButton(5)){
-				outerLift.Set(0); //if driver hits a button, lift
+				outerLift.Set(1); //if driver hits a button, lift
 				manualLift = true;
 			}
-			else { manualLift = false; } //tell program it can do what it likes-will be defined in auto driving code
+			else { manualLift = false; } //tell program it can do what it likes
 
 
 			lDrive1.Set(lPow);	//sets motor powers
@@ -276,7 +290,6 @@ public:
 
 			//INTAKING STUFF ONLY
 			if(!autoDrive || operatorOverride){//if the computer isn't in control of things for whatever
-<<<<<<< HEAD
 				if((getDaBall||loseDaBall) && !boulderIn.Get()){ //if we want to intake and we dont already have a ball
 					if(getDaBall){ intakeRoller.Set(1); } //if we want to intake
 					else{ intakeRoller.Set(-1); } //if we want to outtake
@@ -286,14 +299,6 @@ public:
 					if(abs(5-potVal) > .2){ //if its close to desired value
 						intakeLift.Set(intakeVal);
 					}
-=======
-				if(getDaBall && !boulderIn.Get()){ //if we want to intake and we dont already have a ball
-					intakeRoller.Set(1);  //get things rollin
-					intakeVal = (5 - potVal) * .25; //where 5 is the setpoint and .25 is the P value
-					if(intakeVal > 0){intakeVal += 1;}  //add a bit so it moves when P doesn't do much
-					else{intakeVal -= 1; }
-					intakeLift.Set(intakeVal);
->>>>>>> origin/master
 				}
 				else if(raising && !atBottom.Get()){ //if the shooter is told to be raised up
 					intakeLift.Set(-1); //go down
