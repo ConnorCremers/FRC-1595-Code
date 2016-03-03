@@ -9,7 +9,7 @@ float integrate(float current, float total, float setPoint, float constant, bool
 	float curError = current - setPoint;
 	if(continuous){
 		if(curError > 180){
-			curError = curError - 360;;
+			curError = curError - 360;
 		}
 	}
 	curError *= constant;
@@ -24,7 +24,7 @@ float PIDify(float past, float current, float setPoint, float pC, float iE, floa
 	curError = current-setPoint;
 	if(continuous){
 		if(curError > 180){
-			curError = curError - 360;;
+			curError = curError - 360;
 		}
 		if(current - past > 180){
 			current = current - 360;

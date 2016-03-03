@@ -18,8 +18,6 @@ class Robot: public SampleRobot
 	bool manualLift; //for knowing if it can go back to auto lifting/lowering wheels
 	float throttle, turn	//adjusted inputs from joysticks
 	,lPow ,rPow;	//powers for drive train
-	//ENcoders-they changed declaration-i will look into it
-	Encoder *lEnc, *rEnc;
 
 	//SHOOTER ITEMS--THE FOLLOWING ONLY HAS TO DO WITH THE SHOOTER
 	CANTalon lowerFly, upperFly; //the two flywheels
@@ -80,8 +78,8 @@ public:
 
 			,intakeRoller(7)
 			,intakeLift(8)
-			,boulderIn(0)
-			,atBottom(1)
+			,boulderIn(4)
+			,atBottom(5)
 
 
 			,driver(0)	//the joystick of the person in control of the drive train
@@ -92,9 +90,6 @@ public:
         table = NetworkTable::GetTable("datatable");
         lw = LiveWindow::GetInstance();
         try {
-            /* Communicate w/navX MXP via the MXP SPI Bus.                                       */
-            /* Alternatively:  I2C::Port::kMXP, SerialPort::Port::kMXP or SerialPort::Port::kUSB */
-            /* See http://navx-mxp.kauailabs.com/guidance/selecting-an-interface/ for details.   */
             ahrs = new AHRS(SPI::Port::kMXP);
         } catch (std::exception ex ) {
             std::string err_string = "Error instantiating navX MXP:  ";
@@ -104,17 +99,17 @@ public:
         if ( ahrs ) {
             LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
+        //i dont know what any of that stuff does, if you want to find out be my guest
 
         //Drive stuff
+        lDrive1.SetControlMode(CANSpeedController::kSpeed);
+        rDrive1.SetControlMode(CANSpeedController::kSpeed); //sets the drive motors to speed mode
+        lDrive1.ConfigEncoderCodesPerRev(1024);
+        rDrive1.ConfigEncoderCodesPerRev(1024);
 		lDrive2.SetControlMode(CANSpeedController::kFollower);	//so that they take input of other SRXs
 		rDrive2.SetControlMode(CANSpeedController::kFollower);
 		lDrive2.Set(0);	//sets it to the controller on port 0
 		rDrive2.Set(2); //sets it to the controller on port 2
-
-		lEnc = new Encoder(0, 1, false, Encoder::EncodingType::k4X); //initializes encoders
-		rEnc = new Encoder(2, 3, false, Encoder::EncodingType::k4X);
-		lEnc->SetDistancePerPulse(.5);
-		rEnc->SetDistancePerPulse(.5); //sets how far it goes with each tick (will calculate)
 
 		//Getting terrain types from smart dashboard
 		SmartDashboard::PutString("Obstacle at position one", obstacles[1]);
@@ -214,11 +209,12 @@ public:
 				int value = operater.GetRawAxis(1) * 10;
 				obstacles[0] = obstacles[value]; //have the operator select the terrain type
 				if(obstacles[0] == "low"){
+					if(!manualLift){ outerLift.Set(0); }
 					//lower the arm or whatever
 					if(!setPointOnce){
 						setPoint = ahrs->GetYaw(); //set the ideal angle
-						lEnc->Reset(); //reset encoders so you know the actual distance
-						rEnc->Reset();
+						rDrive1.Reset(); //reset encoders so you know the actual distance
+						lDrive1.Reset();
 						setPointOnce = true;
 					}
 
@@ -227,7 +223,7 @@ public:
 					iErr = integrate(curVal, iErr, setPoint, .005, true); //get i error
 					tErr = (pastVal, curVal, setPoint, .3, iErr, 0, true); //get total error
 
-					if((lEnc->GetDistance() + rEnc->GetDistance())/2 < 120){ //if the avg is > 120 (will adjust)
+					if((lDrive1.GetPosition() + rDrive1.GetPosition())/2 < 120){ //if the avg is > 120 (will adjust)
 						lPow = -.4 * (1+tErr); //set drive values
 						rPow = .4 * (1-tErr);
 					}
