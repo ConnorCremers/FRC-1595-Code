@@ -13,11 +13,9 @@ class Robot: public SampleRobot
 	//DRIVE ITEMS--THE FOLLOWING ONLY HAS TO DO WITH DRIVE TRAIN ITEMS
 	CANTalon lDrive1, rDrive1; //the controlled two motors on the drivetrain
 	CANTalon lDrive2, rDrive2; //The two motors which will be set as followers
-	Solenoid outerLift; //the solenoid which lowers the outer wheels
-	DoubleSolenoid shifter; //the solenoid which will shift the gearing
-	bool manualLift; //for knowing if it can go back to auto lifting/lowering wheels
 	float throttle, turn	//adjusted inputs from joysticks
 	,lPow ,rPow;	//powers for drive train
+	DoubleSolenoid shifter;
 
 	//SHOOTER ITEMS--THE FOLLOWING ONLY HAS TO DO WITH THE SHOOTER
 	CANTalon lowerFly, upperFly; //the two flywheels
@@ -29,15 +27,13 @@ class Robot: public SampleRobot
 	Timer speedTime;
 	float lowerSpeed = 0, upperSpeed = 0;
 	bool run;
-	int position;
+	float position;
 
 
 	//INTAKE ITEMS--THE FOLLOWING ONLY HAS TO DO WITH THE INTAKE
 	CANTalon intakeRoller; //motor running the intake
 	CANTalon intakeLift; //motor which raises/lowers intake
-	int intakeVal; //position to set the lift
-	DigitalInput boulderIn; //a switch to signal that the boulder is fully entered
-	DigitalInput atBottom; //if the intake is at the bottom
+	float intakeVal; //position to set the lift
 
 	//choosing what terrain it is crossing
 	int obstacles[11] = {6,6,6,6,6,6,6,6,6,6,6};
@@ -45,7 +41,7 @@ class Robot: public SampleRobot
 	bool autoDrive; //a boolean to store whether or not robot is operating autonomously while crossing terrain
 
 	Joystick driver, operater, shotSpeed; //joysticks for driver and operator (i know i misspelled it, operator is a storage type)
-
+	float ball;
 public:
 	Robot() :
 			//GYRO STUFF ONLY
@@ -55,20 +51,17 @@ public:
 			autoLoopCounter(0),
 
 			//DRIVING STUFF ONLY
-			lDrive1(0) ,rDrive1(2) //left drive motors will be on 0 and 1
-			,lDrive2(1), rDrive2(3) //right on 2 and 3
-			,outerLift(0, 0) //solenoid contoller 0, port 0
-			,shifter(0, 1, 6)
+			lDrive1(2) ,rDrive1(0) //left drive motors will be on 0 and 1
+			,lDrive2(3), rDrive2(1) //right on 2 and 3
+			,shifter(1, 0,1)
 
 			//SHOOTING STUFF ONLY
-			,lowerFly(4) ,upperFly(5)
-			,ballControl(6)
-			,shooterLift(7)
+			,lowerFly(13) ,upperFly(14)
+			,ballControl(12)
+			,shooterLift(15)
 
-			,intakeRoller(8)
-			,intakeLift(9)
-			,boulderIn(4)
-			,atBottom(5)
+			,intakeRoller(10)
+			,intakeLift(4)
 
 
 			,driver(0)	//the joystick of the person in control of the drive train
@@ -94,13 +87,17 @@ public:
         //Drive stuff
 		lDrive2.SetControlMode(CANSpeedController::kFollower);	//so that they take input of other SRXs
 		rDrive2.SetControlMode(CANSpeedController::kFollower);
-		lDrive2.Set(0);	//sets it to the controller on port 0
-		rDrive2.Set(2); //sets it to the controller on port 2
+		lDrive2.Set(2);	//sets it to the controller on port 0
+		rDrive2.Set(0); //sets it to the controller on port 2
 
 		//setting motor control modes
-		shooterLift.SetControlMode(CANSpeedController::kPosition);
-		shooterLift.SetFeedbackDevice(CANTalon::QuadEncoder);
-		shooterLift.SetPID(1.2, 0, 30);
+	//	shooterLift.SetControlMode(CANSpeedController::kPosition);
+	//	shooterLift.SetFeedbackDevice(CANTalon::QuadEncoder);
+	//	shooterLift.SetPID(1.2, 0, 30);
+
+	//	intakeLift.SetControlMode(CANSpeedController::kPosition);
+	//	intakeLift.SetFeedbackDevice(CANTalon::QuadEncoder);
+	//	intakeLift.SetPID(.8, 0, 10);
 	}
 	/**
 	 * Runs the motors with arcade steering.
@@ -125,19 +122,25 @@ public:
 
 			//DRIVING CODE--ONLY PERTAINS TO DRIVE TRAIN
 			throttle = adjust(driver.GetRawAxis(1));	//uses function adjust in adjustValues.cpp
-			turn = adjust(driver.GetRawAxis(2));	//it sets deadbands and rescales it
-			lPow = leftPower(throttle, turn);	//a fucntion for calculating drive power
-			rPow = rightPower(throttle, turn);	//it uses Omair's math, im not entirely sure what all it does
+			turn = adjust(driver.GetRawAxis(4));	//it sets deadbands and rescales it
+			lPow = leftPower(throttle, -turn);	//a fucntion for calculating drive power
+			rPow = rightPower(throttle, -turn);	//it uses Omair's math, im not entirely sure what all it does
 
 			lDrive1.Set(lPow);	//sets motor powers
 			rDrive1.Set(rPow);
 
+			if(driver.GetRawButton(4)){
+				shifter.Set(DoubleSolenoid::kForward);
+			}
+			else if(driver.GetRawButton(1)){
+				shifter.Set(DoubleSolenoid::kReverse);
+			}
 
 			//INTAKING
 			if(operater.GetRawButton(2)){
-				ballControl.Set(1);
-				lowerFly.Set(-.5);
-				upperFly.Set(-.5);
+				ball = 1;
+				lowerFly.Set(-1);
+				upperFly.Set(-1);
 				intakeRoller.Set(-1);
 			}
 			else if(operater.GetRawButton(4)){
@@ -145,21 +148,25 @@ public:
 					speedTime.Reset();
 					shootIntake = true;
 				}
-				lowerFly.Set(.5);
-				upperFly.Set(.5);
+				lowerFly.Set(1);
+				upperFly.Set(1);
 				intakeRoller.Set(1);
 				if(speedTime.Get() > 1){
-					ballControl.Set(-1);
+					ball = -1;
 				}
 			}
-			else{ shootIntake = false; }
+			else{ shootIntake = false; intakeRoller.Set(0); ball = 0;}
 
 
+		//	intakeVal = intakeVal + adjust(operater.GetRawAxis(3))*40;
+		//	if(intakeLift.GetPosition() < 3000 && operater.GetRawAxis(3) < 0){
+		//		intakeVal = 3000;
+		//	}
 			intakeVal = adjust(operater.GetRawAxis(3));
 			intakeLift.Set(intakeVal);
 
 			//CONTROLLING FLYWHEELS
-			upperSpeed = adjust((shotSpeed.GetRawAxis(2)/2)+.5);
+			upperSpeed = adjust((shotSpeed.GetRawAxis(2))/2+.5);
 			if(operater.GetRawButton(7) || run){
 				run = true;
 				lowerFly.Set(upperSpeed);
@@ -168,12 +175,11 @@ public:
 
 			//BALL CONTROLLER
 			if((operater.GetRawButton(8))){
-				ballControl.Set(-1);
+				ball = -1;
 			}
-
 			//SHOOTER LIFT
-			if(operater.GetPOV() == 90){
-					position = 160000;
+/*			if(operater.GetPOV() == 90){
+				position = 160000;
 			}
 			else if(operater.GetPOV()==270){
 				position = 0;
@@ -190,8 +196,12 @@ public:
 			else{ shooterLift.SetPID(.5,0,30); }
 			if(shooterLift.GetPosition() < 5000){
 				shooterLift.SetPosition(0);
-			}
-			position = position - adjust(operater.GetRawAxis(1))*400;
+			}*/
+			//position = position - adjust(operater.GetRawAxis(1))*400;
+			position = adjust(operater.GetRawAxis(1));
+			SmartDashboard::PutNumber("Lift position", position);
+			SmartDashboard::PutNumber("Joystick output", adjust(operater.GetRawAxis(1)));
+			ballControl.Set(ball);
 			shooterLift.Set(position);
 		}
 
