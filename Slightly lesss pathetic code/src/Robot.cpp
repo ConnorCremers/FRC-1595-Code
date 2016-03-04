@@ -42,6 +42,10 @@ class Robot: public SampleRobot
 	int autoChooser = 0;
 	bool lowerIntake;
 	Timer autoTime;
+	float curErr, avgDst;
+	int toDrive = 16900; //needs to be about 207 inches
+	bool hasDriven, turned;
+	float setPoint = 60;
 public:
 	Robot() :
 			//GYRO STUFF ONLY
@@ -90,7 +94,8 @@ public:
 		rDrive2.SetControlMode(CANSpeedController::kFollower);
 		lDrive2.Set(2);	//sets it to the controller on port 0
 		rDrive2.Set(0); //sets it to the controller on port 2
-
+		lDrive1.SetFeedbackDevice(CANTalon::QuadEncoder);
+		rDrive1.SetFeedbackDevice(CANTalon::QuadEncoder);
 		//setting motor control modes
 
 		lowerFly.SetFeedbackDevice(CANTalon::QuadEncoder);
@@ -138,22 +143,75 @@ public:
 		if(autoChooser == 1){
 			autoTime.Start();
 		}
+		ahrs->ZeroYaw();
 		while(IsAutonomous() && IsEnabled()){
-				if(autoChooser == 1 || autoChooser == 2 || autoChooser == 3){
-				if(!lowerIntake){
-					intakeLift.Set(0);
-					if(intakeLift.GetOutputCurrent() > 30){
-						intakeLift.SetPosition(0);
-						lowerIntake = true;
+			if(!lowerIntake){
+				intakeLift.Set(0);
+				if(intakeLift.GetOutputCurrent() > 4){
+					intakeLift.SetPosition(0);
+					lowerIntake = true;
+				}
+			}
+			else{
+				if(autoChooser == 1){ //if we are just driving forward with timing
+					while(autoTime.Get() < 3){
+						lDrive1.Set(.5);
+						rDrive1.Set(.5);
+					}
+					lDrive1.Set(0);
+					rDrive1.Set(0);
+				}
+
+				else if(autoChooser == 2 || autoChooser == 3){
+					curErr = ahrs->GetYaw();
+					if(curErr > 300){
+						curErr = curErr - 360;
+					}
+					curErr *= .2;
+					avgDst = (lDrive1.GetPosition() + rDrive1.GetPosition())/2;
+					if((avgDst - toDrive) < 0 && abs(avgDst - toDrive) < 100){
+						lPow = (avgDst*.2 + .3) * (1 - curErr);
+						rPow = -(avgDst*.2 + .3) * (1 + curErr);
+					}
+					else if ((avgDst - toDrive) > 0 && abs(avgDst - toDrive) < 100){
+						lPow = -(avgDst*.2 + .3) * (1 + curErr);
+						rPow = (avgDst*.2 + .3) * (1 - curErr);
+					}
+					if(abs(avgDst - toDrive) < 100){
+						lPow = 0;
+						rPow = 0;
+						hasDriven = true;
+					}
+					lDrive1.Set(lPow);
+					rDrive1.Set(rPow);
+				}
+
+				if(hasDriven && autoChooser == 3 && !turned){
+					curErr = 60 - ahrs->GetYaw();
+					if(abs(curErr) < -200){
+						curErr = curErr + 360;
+					}
+					if(curErr > 0){
+						lPow = curErr * .03 + .1;
+						rPow = curErr * .03 + .1;
+					}
+					if(curErr < 1){
+						lPow = 0; rPow = 0;
+						turned = true;
+					}
+					lDrive1.Set(lPow);
+					rDrive1.Set(rPow);
+				}
+
+				if(turned && autoChooser == 3){
+					shooterLift.Set(160000);
+					lowerFly.Set(1);
+					upperFly.Set(1);
+					if(shooterLift.GetClosedLoopError() < 500){
+						ballControl.Set(-1);
 					}
 				}
-				else{
 
-
-
-
-
-				}
 			}
 		}
 	}
