@@ -5,10 +5,10 @@
 class Robot: public SampleRobot
 {
 	//GYRO STUFF--THE FOLLOWING IS FOR THE GYRO
-	std::shared_ptr<NetworkTable> table;
-    AHRS *ahrs;
-    LiveWindow *lw;
-    int autoLoopCounter;
+//	std::shared_ptr<NetworkTable> table;
+//    AHRS *ahrs;
+//    LiveWindow *lw;
+//    int autoLoopCounter;
 
 	//DRIVE ITEMS--THE FOLLOWING ONLY HAS TO DO WITH DRIVE TRAIN ITEMS
 	CANTalon lDrive1, rDrive1; //the controlled two motors on the drivetrain
@@ -23,7 +23,6 @@ class Robot: public SampleRobot
 	CANTalon ballControl; //thing to push ball to flywheels
 	CANTalon shooterLift;
 	float wheelSpeed; //how fast to move wheels
-	bool raising; //does the person give the order to raise
 	bool shootIntake;
 	Timer speedTime;
 	float lowerSpeed = 0, upperSpeed = 0;
@@ -37,6 +36,7 @@ class Robot: public SampleRobot
 	int intakeVal = 0; //position to set the lift
 	DigitalInput boulderIn; //a switch to signal that the boulder is fully entered
 	float ballControlVal;
+	bool set;
 
 	Joystick driver, operater; //joysticks for driver and operator (i know i misspelled it, operator is a storage type)
 	int autoChooser = 0;
@@ -49,10 +49,10 @@ class Robot: public SampleRobot
 public:
 	Robot() :
 			//GYRO STUFF ONLY
-			table(NULL),
-			ahrs(NULL),
-        	lw(NULL),
-			autoLoopCounter(0),
+//			table(NULL),
+//			ahrs(NULL),
+ //       	lw(NULL),
+//			autoLoopCounter(0),
 
 			//DRIVING STUFF ONLY
 			lDrive1(2) ,rDrive1(0) //left drive motors will be on 0 and 1
@@ -74,7 +74,7 @@ public:
 {}
 	void RobotInit(){
 		//Gyro stuff
-        table = NetworkTable::GetTable("datatable");
+/*        table = NetworkTable::GetTable("datatable");
         lw = LiveWindow::GetInstance();
         try {
             ahrs = new AHRS(SPI::Port::kMXP);
@@ -86,7 +86,7 @@ public:
         if ( ahrs ) {
             LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
-        //i dont know what any of that stuff does, if you want to find out be my guest
+ */       //i dont know what any of that stuff does, if you want to find out be my guest
 
 
         //Drive stuff
@@ -106,7 +106,6 @@ public:
 		intakeLift.SetPID(.5, 0, 12);
 		shooterLift.SetControlMode(CANTalon::kPosition);
 		shooterLift.SetFeedbackDevice(CANTalon::QuadEncoder);
-		//shooterLift.SetSensorDirection(true);
 		shooterLift.SetPID(.5, 0, 12);
 	}
 	/**
@@ -123,10 +122,10 @@ public:
 				SmartDashboard::PutString("Chosen autonomous: ", "n0thing");
 			}
 			else if(autoChooser == 1){
-				SmartDashboard::PutString("Chosen autonomous: ", "Drive forward w/ time");
+				SmartDashboard::PutString("Chosen autonomous: ", "Drive forward Low bar");
 			}
 			else if(autoChooser == 2){
-				SmartDashboard::PutString("Chosen autonomous: ", "Drive forward w/ encoders");
+				SmartDashboard::PutString("Chosen autonomous: ", "Drive forward terrain");
 			}
 			else if(autoChooser == 3){
 				SmartDashboard::PutString("Chosen autonomous: ", "Drive forward and shoot");
@@ -139,30 +138,43 @@ public:
 
 	void Autonomous(){
 		lowerIntake = false;
-		intakeLift.SetPosition(40000);
-		if(autoChooser == 1){
+//		intakeLift.SetPosition(40000);
+//		if(autoChooser == 1){
 			autoTime.Start();
-		}
-		ahrs->ZeroYaw();
+//		}
+//		ahrs->ZeroYaw();
+		intakeLift.SetPosition(36500); //47000 if no panel
+		shifter.Set(DoubleSolenoid::kForward);
 		while(IsAutonomous() && IsEnabled()){
+			SmartDashboard::PutBoolean("lowerintake", lowerIntake);
 			if(!lowerIntake){
+				if(autoChooser == 1){
 				intakeLift.Set(0);
-				if(intakeLift.GetOutputCurrent() > 4){
-					intakeLift.SetPosition(0);
-					lowerIntake = true;
+					if(intakeLift.GetPosition() < 300 && !lowerIntake){
+						lowerIntake = true;
+						autoTime.Reset();
+					}
+				}
+				if(autoChooser == 2){
+				intakeLift.Set(10000);
+					if(intakeLift.GetPosition() < 7000 && !lowerIntake){
+						lowerIntake = true;
+						autoTime.Reset();
+					}
 				}
 			}
 			else{
-				if(autoChooser == 1){ //if we are just driving forward with timing
-					while(autoTime.Get() < 3){
-						lDrive1.Set(.5);
+				if((autoChooser == 1|| autoChooser == 2) && lowerIntake){ //if we are just driving forward with timing
+					if(autoTime.Get() < 4.5){
+						lDrive1.Set(-.5);
 						rDrive1.Set(.5);
 					}
+					else{
 					lDrive1.Set(0);
-					rDrive1.Set(0);
+					rDrive1.Set(0);}
 				}
-
-				else if(autoChooser == 2 || autoChooser == 3){
+			}
+/*				else if(autoChooser == 2 || autoChooser == 3){
 					curErr = ahrs->GetYaw();
 					if(curErr > 300){
 						curErr = curErr - 360;
@@ -213,28 +225,31 @@ public:
 				}
 
 			}
+			*/
 		}
+		autoTime.Stop();
+
 	}
 
 	void OperatorControl()
 	{
 		lowerIntake = false;
-		intakeLift.SetPosition(0);
+	//	intakeLift.SetPosition(000);
 		shooterLift.SetPosition(0);
 		speedTime.Start();
 		while (IsOperatorControl() && IsEnabled())
 		{
 			SmartDashboard::PutNumber("POV", operater.GetPOV());
-			SmartDashboard::PutNumber("Desired position", position);
-			SmartDashboard::PutNumber("Intake position", shooterLift.GetPosition());
+			SmartDashboard::PutNumber("Shooter position", shooterLift.GetPosition());
+			SmartDashboard::PutNumber("Intake position", intakeLift.GetPosition());
 			//GYRO STUFF
-	        if ( !ahrs ) return;
+/*	        if ( !ahrs ) return;
 
 	        bool reset_yaw_button_pressed = DriverStation::GetInstance().GetStickButton(0,1);
 	        if ( reset_yaw_button_pressed ) {
 	            ahrs->ZeroYaw();
 	        }
-
+*/
 			//DRIVING CODE--ONLY PERTAINS TO DRIVE TRAIN
 			throttle = adjust(driver.GetRawAxis(1));	//uses function adjust in adjustValues.cpp
 			turn = adjust(driver.GetRawAxis(4));	//it sets deadbands and rescales it
@@ -252,7 +267,10 @@ public:
 				ballControlVal = 1;
 				upperSpeed = -1;
 				intakeRoller.Set(-1);
-				intakeVal = 4500;
+				if(!set){
+					intakeVal = 4500;
+					set = true;
+				}
 				shootIntake = true;
 			}
 			else if(operater.GetRawButton(4)){
@@ -260,7 +278,10 @@ public:
 					speedTime.Reset();
 					shootIntake = true;
 				}
-				intakeVal = 4500;
+				if(!set){
+					intakeVal = 4500;
+					set = true;
+				}
 				upperSpeed = 1;
 				intakeRoller.Set(1);
 				if(speedTime.Get() > .5){
@@ -268,16 +289,20 @@ public:
 				}
 			}
 			else{ shootIntake = false; intakeRoller.Set(0);
-			ballControlVal = 0;}
+			ballControlVal = 0; set = false;}
 
 			if(shootIntake == false){
 				upperSpeed = 0;;
 			//	upperFly.Set(0);
 			}
 
-			if((intakeVal > 300 && adjust(operater.GetRawAxis(3)) < 0) || (intakeVal < 31000 && adjust(operater.GetRawAxis(3)) > 0))
+			if((intakeVal > 300 && adjust(operater.GetRawAxis(3)) > 0) || (intakeVal < 31000 && adjust(operater.GetRawAxis(3)) < 0))
 			{
-				intakeVal = intakeVal + adjust(operater.GetRawAxis(3)) * 200;
+				intakeVal = intakeVal - adjust(operater.GetRawAxis(3)) * 200;
+			}
+			if(operater.GetRawButton(3)){
+				position = 27000;
+				intakeVal = 25000;
 			}
 			intakeLift.Set(intakeVal);
 
@@ -311,45 +336,41 @@ public:
 				run = false;
 			}
 			//SHOOTER LIFT
-			if((shooterLift.GetPosition() > 80000 && position > 80000) || intakeLift.GetPosition() < 5000){
-				if(operater.GetPOV() == 180){
-					position = 160000;
+			if(shooterLift.GetPosition() > 80000 || intakeLift.GetPosition() < 5000 || shooterLift.GetPosition() < 30000){
+				if(operater.GetPOV() == 0){
+					position = 175000;
 				}
-				else if(operater.GetPOV()==0){
+				else if(operater.GetPOV()==180){
 					position = 2000;
 					shootIntake = false;
 					run = false;
-				}
-				if(shooterLift.GetClosedLoopError() < 500){
-					raising = false;
 				}
 				if(position < shooterLift.GetPosition() && shooterLift.GetPosition() > 5000){
 					shooterLift.SetPID(.1, 0, 30);
 				}
 				else{ shooterLift.SetPID(.5,0,30); }
 
-				position = position + adjust(operater.GetRawAxis(1))*400;
+				position = position - adjust(operater.GetRawAxis(1))*400;
 			}
+
 			ballControl.Set(ballControlVal);
 			if(position < 0) { position = 0; }
-			if(position > 180000){ position = 180000;}
+			if(position > 200000){ position = 200000;}
 			shooterLift.Set(position);
 
 			lowerFly.Set(upperSpeed);
 			upperFly.Set(upperSpeed);
-			SmartDashboard::PutBoolean("Run2", run);
 
-			if(operater.GetRawButton(12)){
+	/*		if(operater.GetRawButton(12)){
 				if(!lowerIntake){
 					intakeLift.SetPosition(40000);
 					intakeLift.Set(0);
-					if(intakeLift.GetOutputCurrent() > 5){
+					if(intakeLift.GetOutputCurrent() > 4){
 						intakeLift.SetPosition(0);
 						lowerIntake = true;
 					}
 				}
-			}
-			SmartDashboard::PutNumber("intake current", intakeLift.GetOutputCurrent());
+			}*/
 		}
 
 //		SmartDashboard::PutNumber("Upper flywheel speed", upperFly.GetEncVel());
