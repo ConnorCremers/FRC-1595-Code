@@ -4,11 +4,15 @@
 #include <iostream>
 class Robot: public SampleRobot
 {
+	//James Added for SmartDashboard
+	//Preferences *prefs;
+	double AutoSetDis,kP,kI,kD;
+
 	//GYRO STUFF--THE FOLLOWING IS FOR THE GYRO
-//	std::shared_ptr<NetworkTable> table;
-//    AHRS *ahrs;
-//    LiveWindow *lw;
-//    int autoLoopCounter;
+	std::shared_ptr<NetworkTable> table;
+    AHRS *ahrs;
+    LiveWindow *lw;
+    int autoLoopCounter;
 
 	//DRIVE ITEMS--THE FOLLOWING ONLY HAS TO DO WITH DRIVE TRAIN ITEMS
 	CANTalon lDrive1, rDrive1; //the controlled two motors on the drivetrain
@@ -17,6 +21,7 @@ class Robot: public SampleRobot
 	bool manualLift; //for knowing if it can go back to auto lifting/lowering wheels
 	float throttle, turn	//adjusted inputs from joysticks
 	,lPow ,rPow;	//powers for drive train
+	double lDis, rDis;
 
 	//SHOOTER ITEMS--THE FOLLOWING ONLY HAS TO DO WITH THE SHOOTER
 	CANTalon lowerFly, upperFly; //the two flywheels
@@ -49,10 +54,10 @@ class Robot: public SampleRobot
 public:
 	Robot() :
 			//GYRO STUFF ONLY
-//			table(NULL),
-//			ahrs(NULL),
- //       	lw(NULL),
-//			autoLoopCounter(0),
+			table(NULL),
+			ahrs(NULL),
+        	lw(NULL),
+			autoLoopCounter(0),
 
 			//DRIVING STUFF ONLY
 			lDrive1(2) ,rDrive1(0) //left drive motors will be on 0 and 1
@@ -73,8 +78,19 @@ public:
 			,operater(1) //the joystick of the person in control of everything else
 {}
 	void RobotInit(){
+		//James Added SmartDashboard
+		SmartDashboard::PutNumber("Dis",AutoSetDis);
+		SmartDashboard::PutNumber("kP",kP);
+		SmartDashboard::PutNumber("kI",kI);
+		SmartDashboard::PutNumber("kD",kD);
+		//prefs = Preferences::GetInstance();
+		//AutoSetDis = prefs->GetDouble("AutoSetDis",0);
+		//kP= prefs->GetDouble("kP",0);
+		//kI= prefs->GetDouble("kI",0);
+		//kD= prefs->GetDouble("kD",0);
+
 		//Gyro stuff
-/*        table = NetworkTable::GetTable("datatable");
+        table = NetworkTable::GetTable("datatable");
         lw = LiveWindow::GetInstance();
         try {
             ahrs = new AHRS(SPI::Port::kMXP);
@@ -86,7 +102,7 @@ public:
         if ( ahrs ) {
             LiveWindow::GetInstance()->AddSensor("IMU", "Gyro", ahrs);
         }
- */       //i dont know what any of that stuff does, if you want to find out be my guest
+        //i dont know what any of that stuff does, if you want to find out be my guest
 
 
         //Drive stuff
@@ -133,6 +149,10 @@ public:
 			else {
 				SmartDashboard::PutString("Chosen autonomous: ", "The heck you doin");
 			}
+			AutoSetDis = SmartDashboard::GetNumber("Dis",AutoSetDis);
+			kP = SmartDashboard::GetNumber("kP",kP);
+			kI = SmartDashboard::GetNumber("kI",kI);
+			kD = SmartDashboard::GetNumber("kD",kD);
 		}
 	}
 
@@ -142,9 +162,13 @@ public:
 //		if(autoChooser == 1){
 			autoTime.Start();
 //		}
-//		ahrs->ZeroYaw();
+		ahrs->ZeroYaw();
 		intakeLift.SetPosition(36500); //47000 if no panel
 		shifter.Set(DoubleSolenoid::kForward);
+		//James Added
+		lDrive1.SetEncPosition(0);
+		rDrive1.SetEncPosition(0);
+		//James Added End
 		while(IsAutonomous() && IsEnabled()){
 			SmartDashboard::PutBoolean("lowerintake", lowerIntake);
 			if(!lowerIntake){
@@ -239,9 +263,13 @@ public:
 		speedTime.Start();
 		while (IsOperatorControl() && IsEnabled())
 		{
+			SmartDashboard::PutNumber("AutoSetDis", AutoSetDis);
+			SmartDashboard::PutNumber("kP", kP);
+			SmartDashboard::PutNumber("kI", kI);
+			SmartDashboard::PutNumber("kD", kD);
 			SmartDashboard::PutNumber("POV", operater.GetPOV());
-			SmartDashboard::PutNumber("Shooter position", shooterLift.GetPosition());
-			SmartDashboard::PutNumber("Intake position", intakeLift.GetPosition());
+			SmartDashboard::PutNumber("Left drive", lDrive1.GetPosition());
+			SmartDashboard::PutNumber("Right drive", rDrive1.GetPosition());
 			//GYRO STUFF
 /*	        if ( !ahrs ) return;
 
@@ -250,6 +278,11 @@ public:
 	            ahrs->ZeroYaw();
 	        }
 */
+			//NAVX STUFF
+			SmartDashboard::PutNumber(  "IMU_Yaw",              ahrs->GetYaw());
+			SmartDashboard::PutNumber(  "IMU_Pitch",            ahrs->GetPitch());
+			SmartDashboard::PutNumber(  "IMU_Roll",             ahrs->GetRoll());
+
 			//DRIVING CODE--ONLY PERTAINS TO DRIVE TRAIN
 			throttle = adjust(driver.GetRawAxis(1));	//uses function adjust in adjustValues.cpp
 			turn = adjust(driver.GetRawAxis(4));	//it sets deadbands and rescales it
