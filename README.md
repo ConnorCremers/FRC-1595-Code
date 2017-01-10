@@ -7,6 +7,5 @@ If there is a change in functionality, create a new projet with a new descriptiv
 Try to keep as many logic/math functions in separate .cpps. You have to create a header file, refer to simple drive code to see that.
 Make sure to include comments because this is no longer for just yourself. Hopefully I'll do better than last year
 
-You will need to get eclipse, add the WPI add on, install FRC toolchains, get the update suite, get the github desktop interface and run
-the nav x installer which I'm about to upload. How to do everything besides the last part is at https://wpilib.screenstepslive.com/s/4485
-The serial code for the update suite is M81X05496
+You will need to get your computer good to go. How to do everything is at https://wpilib.screenstepslive.com/s/4485. We need the Nav X add on and the CANTalon one.
+The serial code for the update suite is M82X13711
