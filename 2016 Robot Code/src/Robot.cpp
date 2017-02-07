@@ -90,9 +90,11 @@ public:
 	}
 
 	void AutonomousPeriodic() {
+
 	}
 
 	void TeleopInit() {
+		lightController.Set(true);
 		intakeLiftControl->SetPID(kPI,kII,kDI);
 		intakeLiftControl->SetOutputRange(-1,1);
 		intakeLiftControl->Enable();
@@ -122,14 +124,14 @@ public:
 		visionRunTime=vision->GetNumber("RUN_TIME",0);
 
 		throttle= -dr.GetRawAxis(1);
-		turn= dr.GetRawAxis(2);
+		turn= dr.GetRawAxis(4);
 		turnButton= dr.GetRawButton(6);
-		aim=dr.GetRawButton(5);
-		visionAim=dr.GetRawButton(7);
-		if(dr.GetRawButton(11)){
+	//	aim=dr.GetRawButton(5);
+		visionAim=dr.GetRawButton(5);
+		if(dr.GetRawButton(9)){
 			highGear=true;
 		}
-		if(dr.GetRawButton(12)){
+		if(dr.GetRawButton(10)){
 			highGear=false;
 		}
 			//op
@@ -605,7 +607,7 @@ private:
 	bool shooterLow,shooterHighB,shooterHighD,shooterFlyPre,shooterFlyFire,shooterLiftManual,shooterLiftPIDEnabled=true;
 
 	//INTAKE ITEMS--THE FOLLOWING ONLY HAS TO DO WITH THE INTAKE
-	Victor intakeRoller{10}; //motor running the intake
+	Victor intakeRoller{9}; //motor running the intake
 	float intakeRollerSetPow;
 	CANTalon intakeLift{4}; //motor which raises/lowers intake
 	float intakeLiftSetAngle,intakeLiftManualPow,intakeLiftAngle,intakeLiftSetAnglePrev;

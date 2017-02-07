@@ -12,8 +12,8 @@ float checkMax(float liftAxis ,int JamesHit ,bool topSwitch ,bool botSwitch ,flo
 bool downButton(bool downButton, bool botSwitch);
 bool upButton(bool upButton, bool topSwitch);
 
-float adjust(float value);
-float adjustSmooth(float value, float pastValue);
+float adjust(float value); //brings the joystick input to desired output range
+float adjustSmooth(float value, float pastValue); //brings joytsick input to desired output range and prevents jerkyness (?)
 
 float rightPower(float throttle, float turn);
 float leftPower(float throttle, float turn);

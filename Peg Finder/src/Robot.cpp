@@ -13,11 +13,12 @@
 #include <SerialPort.h>
 #include "AHRS.h"
 #include "Functions.h"
+#include <Timer.h>
 using namespace frc;
 
 
 
-class Robot: public IterativeRobot {
+class Robot: public IterativeRobot, public PIDOutput {
 public:
 
     virtual void PIDWrite(double output) {
@@ -25,36 +26,46 @@ public:
     }
 
 	void RobotInit() {
+		SmartDashboard::PutNumber("P value", kGP);
+		SmartDashboard::PutNumber("I value", kGI);
+		SmartDashboard::PutNumber("D value", kGD);
+
 		chooser.AddDefault(autoNameDefault, autoNameDefault);
 		chooser.AddObject(autoNameCustom, autoNameCustom);
 		SmartDashboard::PutData("Auto Modes", &chooser);
 
 		//Drive train
+		lDrive1.SetFeedbackDevice(CANTalon::QuadEncoder); //declare the encoders to run them at times
+		rDrive1.SetFeedbackDevice(CANTalon::QuadEncoder);
+		lDrive1.ConfigEncoderCodesPerRev(1024);
+		rDrive1.ConfigEncoderCodesPerRev(1024);
+
 		lDrive2.SetControlMode(CANSpeedController::kFollower);	//so that they take input of other SRXs
-		//lDrive3.SetControlMode(CANSpeedController::kFollower);
+		lDrive3.SetControlMode(CANSpeedController::kFollower);
 		rDrive2.SetControlMode(CANSpeedController::kFollower);	//so that they take input of other SRXs
-		//rDrive3.SetControlMode(CANSpeedController::kFollower);
-		lDrive2.Set(0);
-		//lDrive3.Set(0);
-		rDrive2.Set(2);
-		//rDrive3.Set(2;)
-		lDrive1.SetInverted(true);
-		lDrive2.SetInverted(true);
-		//lDrive3.SetInverted(true);
+		rDrive3.SetControlMode(CANSpeedController::kFollower);
+		lDrive2.Set(9); //lDrive1
+		lDrive3.Set(9);
+		rDrive2.Set(3); //rDrive1
+		rDrive3.Set(3);
+		rDrive1.SetInverted(true); //right drive train inverted
+		rDrive2.SetInverted(true);
+		rDrive3.SetInverted(true);
 
 	try {
-        ahrs = new AHRS(SPI::Port::kMXP);
+        ahrs = new AHRS(SPI::Port::kMXP);  //initialize Nav X on SPI bus of MXP port on roborio
 	}
      catch (std::exception& ex ) {
-        std::string err_string = "Error instantiating navX MXP:  ";
+        std::string err_string = "Error instantiating navX MXP:  "; //if something goes wrong with nav X
         err_string += ex.what();
         DriverStation::ReportError(err_string.c_str());
     }
- //   turnController = new PIDController(kGP, kGI, kGD, kGF, ahrs, this);
- //   turnController->SetInputRange(-180.0f,  180.0f);
- //   turnController->SetOutputRange(-1.0, 1.0);
- //   turnController->SetAbsoluteTolerance(3);
- //   turnController->SetContinuous(true);
+
+    turnController = new PIDController(kGP, kGI, kGD, kGF, ahrs, this); //initialize and set up turning PID
+    turnController->SetInputRange(-180.0f,  180.0f);
+    turnController->SetOutputRange(-.75, .75);
+    turnController->SetAbsoluteTolerance(3);
+    turnController->SetContinuous(true);
 	}
 
 	/*
@@ -68,6 +79,14 @@ public:
 	 * if-else structure below with additional strings. If using the
 	 * SendableChooser make sure to add them to the chooser code above as well.
 	 */
+
+	void Disabled(){
+		while(IsDisabled()){
+			kGP = SmartDashboard::GetNumber("P value", kGP);
+			kGI = SmartDashboard::GetNumber("I value", kGI);
+			kGD = SmartDashboard::GetNumber("D value", kGD);
+		}
+	}
 	void AutonomousInit() override {
 		autoSelected = chooser.GetSelected();
 		// std::string autoSelected = SmartDashboard::GetString("Auto Selector", autoNameDefault);
@@ -91,92 +110,150 @@ public:
 	void TeleopInit() {
 		rPi.Reset();
 		rPi.Flush();
+		rotateTimer.Start();
+		turnController->SetPID(kGP,kGI,kGD);
+
+		lDrive1.SetControlMode(CANTalon::kSpeed);
+		rDrive1.SetControlMode(CANTalon::kSpeed);
+		curDrawTimer.Start();
 	}
 
 	void TeleopPeriodic() {
 		SmartDashboard::PutNumber("Recieved bytes", rPi.GetBytesReceived());
-//			ahrs->ZeroYaw();
-		if(dr.GetRawButton(1)){
+		if(rPi.GetBytesReceived() == 3){
+			rPi.Read(values,3);
+		}
+
+		/*if(dr.GetRawButton(1)){
 			whichProg[0] = 1;
 			rPi.Write(whichProg);
 		}
-		else{
+		else if(dr.GetRawButton(2)){
 			whichProg[0] = 2;
 			rPi.Write(whichProg);
-		}
-			rPi.Read(values, rPi.GetBytesReceived());
-		//	targetPixel = values[0] + values[1] + values[2];
-			targetAngle = (targetPixel - midPixel) * pixelsToDegrees;
-			SmartDashboard::PutNumber("TargetPixel", targetPixel);
-			SmartDashboard::PutNumber("Values0", values[0]);
-			SmartDashboard::PutNumber("Values1", values[1]);
-			SmartDashboard::PutNumber("Values2", values[2]);
-			SmartDashboard::PutNumber("Values3", values[3]);
-			SmartDashboard::PutNumber("Values4", values[4]);
-			SmartDashboard::PutNumber("Values5", values[5]);
-			SmartDashboard::PutNumber("Yaw", ahrs->GetYaw());
-			Wait(.05);
+		}*/
 //		if(autoPlaceStage == 1 || autoPlaceStage == 3){
 //			autoPlaceStage++;
 //			turnController->Enable();
 //			turnController->SetSetpoint(targetAngle);
 
 //		}
-/*		if(dr.GetRawButton(6)){ autoPlacing = true; autoPlaceFlush = false; autoPlaceStage = 1; }
+		if(dr.GetRawButton(6)){ autoPlacing = true; autoPlaceFlush = false; autoPlaceStage = 1; }
 		else if(dr.GetRawButton(5)){ autoPlacing = false; }
 
 		if(!autoPlacing){
-			turn = adjust(dr.GetRawAxis(4))/4;
-			throttle = -adjust(dr.GetRawAxis(1));
-			lPow = throttle + turn;
-			rPow = throttle - turn;
-			lDrive1.Set(lPow);
-			rDrive1.Set(rPow);
+			turn = adjust(dr.GetRawAxis(4))/3; //get the turn, scale it down
+			throttle = -adjust(dr.GetRawAxis(1)); //get the throttle
+			lPow = throttle - turn; //simple arcade drive
+			rPow = throttle + turn;
 
+			if((fabs(rPow) < .35 && fabs(lPow) < .35) || rDrive1.GetEncVel() * encOutputRatio < 340 || rDrive1.GetEncVel() * encOutputRatio < 340){
+				//if both left and right have more power at low gear or (left or right) speeds are below 340 rpm
+				rDrive1.SetPID(kLDP, kLDI, kLDD); //set low gear PIDs
+				lDrive1.SetPID(kLDP, kLDI, kLDD);
+				shifter.Set(DoubleSolenoid::kForward); //low gear
+				highGear = false;
+				rSpeed = rPow / .35 * 360; //map the values from -.35 to .35 -> from -360 to 360
+				lSpeed = lPow / .35 * 360; //could this cause issues if rSpeed and lSpeed end up being over 360 in low gear?
+			}
+			else{
+				if((rDrive1.GetOutputCurrent() < 80 && lDrive1.GetOutputCurrent() < 80) || (rDrive1.GetEncVel() * encOutputRatio < 800 && lDrive1.GetEncVel() * encOutputRatio < 800)){
+					//if both aren't drawing too much current and we aren't going vroom vroom
+					curDrawTimer.Reset();  //note it
+				}
+
+
+				if(curDrawTimer.Get() < 3){ //if both are okay in terms of current draw
+					rDrive1.SetPID(kHDP, kHDI, kHDD); //high gear PIDS
+					lDrive1.SetPID(kHDP, kHDI, kHDD);
+					shifter.Set(DoubleSolenoid::kReverse); //high gear
+					highGear = true;
+					if(rPow > 0){ rSpeed = (rPow - .35) * 1080 + 360; } //map values to appropriate ranges
+					else { rSpeed = (rPow + .35) * 1080 - 360; }
+
+					if(lPow > 0){ lSpeed = (lPow - .35) * 1080 + 360; }
+					else { lSpeed = (lPow + .35) * 1080 - 360; }
+				}
+
+
+				if(curDrawTimer.Get() > 3){
+					//if we are drawing too much current
+					shifter.Set(DoubleSolenoid::kForward); //low gear time
+					highGear = false;
+					rDrive1.SetPID(kLDP, kLDI, kLDD);
+					lDrive1.SetPID(kLDP, kLDI, kLDD);
+					rSpeed = 360; //just max dat speed. VRRROOOOOOMMMMMM
+					lSpeed = 360;
+				}
+			}
+
+			lDrive1.Set(lSpeed); //set speeds
+			rDrive1.Set(rSpeed);
 
 			if(dr.GetRawButton(1)){
-				clamper.Set(DoubleSolenoid::kForward);
+				shifter.Set(DoubleSolenoid::kForward);
 			}
 			if(dr.GetRawButton(2)){
-				clamper.Set(DoubleSolenoid::kReverse);
+				shifter.Set(DoubleSolenoid::kReverse);
 			}
 		}
 
 		else{
-			if(!autoPlaceFlush || rPi.GetBytesReceived() > 4){ rPi.Flush(); autoPlaceFlush = true; }
-			if(rPi.GetBytesReceived() == 3){
-				ahrs->ZeroYaw();
-				rPi.Read(values, 3);
-				targetPixel = values[0] + values[1];
-				targetAngle = (targetPixel - midPixel) * pixelsToDegrees;
-				Wait(100);
+			shifter.Set(DoubleSolenoid::kForward);
+			if(!autoPlaceFlush || rPi.GetBytesReceived() > 4){ rPi.Reset(); autoPlaceFlush = true; }
+
+		//	if(rPi.GetBytesReceived() == 3){
+				targetPixel = values[0] + values[1] + values[2];
 				if(autoPlaceStage == 1 || autoPlaceStage == 3){
+					ahrs->ZeroYaw();
+					targetAngle = (targetPixel - midPixel) * pixelsToDegrees;
 					autoPlaceStage++;
 					turnController->Enable();
 					turnController->SetSetpoint(targetAngle);
 				}
-			}
+			//}
 
 			if(autoPlaceStage == 2){
 				rotatePow = rotateToAngleRate;
 				lDrive1.Set(rotateToAngleRate);
 				rDrive1.Set(-rotateToAngleRate);
-				if(fabs(ahrs->GetYaw()-targetAngle) < 3){
+				if(fabs(ahrs->GetYaw()-targetAngle) > 3){
+					rotateTimer.Reset();
+				}
+				if(rotateTimer.Get() > 1){
 					autoPlaceStage = 3;
 				}
+
 			}
 
 			if(autoPlaceStage == 4){
-				if(fabs(targetAngle) < 3){ autoPlaceStage = 5; }
+				if(fabs(targetAngle) < 3){ ahrs->ZeroYaw(); autoPlaceStage = 5; }
 				else{ autoPlaceStage = 1; }
 			}
-
-			if(autoPlaceStage ==5){
-				autoPlacing = false;
+			if(autoPlaceStage == 5){
+				targetAngle = (targetPixel - midPixel) * pixelsToDegrees;
+				turnController->SetSetpoint(targetAngle);
+				rotatePow = rotateToAngleRate;
+				lDrive1.Set(adjust(dr.GetRawAxis(1)) * (1-rotatePow/4));
+				rDrive1.Set(adjust(dr.GetRawAxis(1)) * (1+rotatePow/4));
 			}
 
+
 		}
-	*/}
+		SmartDashboard::PutNumber("Rotate time", rotateTimer.Get());
+		SmartDashboard::PutNumber("Target angle", targetAngle);
+		SmartDashboard::PutNumber("Auto place stage", autoPlaceStage);
+		SmartDashboard::PutNumber("TargetPixel", targetPixel);
+
+		SmartDashboard::PutNumber("Yaw", ahrs->GetYaw());
+		SmartDashboard::PutBoolean("Autoplace", autoPlacing);
+
+		SmartDashboard::PutNumber("P value", kGP);
+		SmartDashboard::PutNumber("I value", kGI);
+		SmartDashboard::PutNumber("D value", kGD);
+
+		SmartDashboard::PutBoolean("High gear?", highGear);
+	}
 
 	void TestPeriodic() {
         LiveWindow::GetInstance()->AddActuator("DriveSystem", "RotateController", turnController);
@@ -198,26 +275,32 @@ private:
 	Joystick dr { 0 };
 
 	//Drive train
-	CANTalon lDrive1 { 0 };
-	CANTalon lDrive2 { 1 };
-	//CANTalon lDrive3 { 2 };
-	CANTalon rDrive1 { 2 };
-	CANTalon rDrive2 { 3 };
-	//CANTalon rDrive3 { 5 };
+	CANTalon lDrive1 { 9 };
+	CANTalon lDrive2 { 10 };
+	CANTalon lDrive3 { 11 };
+	CANTalon rDrive1 { 3 };
+	CANTalon rDrive2 { 4 };
+	CANTalon rDrive3 { 5 };
+	DoubleSolenoid shifter { 1, 0, 1};
 	float throttle, turn;
-	float lPow, rPow;
-
+	float lPow, rPow, lSpeed, rSpeed;
+	static float encOutputRatio = 5/3;
+	float kLDP = .05, kLDI = 0, kLDD = 0;
+	float kHDP = .05, kHDI = 0, kHDD = 0;
+	bool highGear;
+	Timer curDrawTimer;
 	//Gear
-	DoubleSolenoid clamper { 1, 0, 1 };
+	DoubleSolenoid clamper { 1, 2, 3 };
 
 	//Vision
 	SerialPort rPi { 115200, SerialPort::kMXP, 8 , SerialPort::kParity_None, SerialPort::kStopBits_One }; //initializes serial port at 9600 baud
 
 	bool autoPlacing;
 	bool autoPlaceFlush;
-	char values[6];
-	int targetPixel, midPixel;
-	float targetAngle, pixelsToDegrees = 3;
+	Timer rotateTimer;
+	char values[100];
+	int targetPixel, midPixel = 320;
+	float targetAngle, pixelsToDegrees = .0796875; //arctan(5.125/10.75)*2 / 640
 	int autoPlaceStage;
 	char whichProg[1];
 	//Gyro
@@ -225,10 +308,10 @@ private:
     PIDController *turnController;
     double rotateToAngleRate;
     double rotatePow;
-	double kGP = 0.03f;
-	double kGI = 0.00f;
-	double kGD = 0.00f;
-	double kGF = 0.00f;
+	double kGP = 0.05;
+	double kGI = 0.0005;
+	double kGD = 0.0;
+	double kGF = 0.00;
 };
 
 START_ROBOT_CLASS(Robot)

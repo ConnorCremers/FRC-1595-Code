@@ -53,3 +53,4 @@ float adjustSmooth(float value, float pastValue){
 
 	return(value);
 }
+
